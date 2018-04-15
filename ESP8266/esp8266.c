@@ -12,10 +12,12 @@
 #include "BME280/bme280_support.h"
 #include "esp8266.h"
 
-#define RX_BUFFER_SIZE 1024
+#define RX_BUFFER_SIZE (1024*4)
 
 uint16_t RX_Count = 0;
 char RX_Buffer[RX_BUFFER_SIZE] = "";
+char forecastResults[512] = "";
+char forecastFields[512] = "";
 
 const eUSCI_UART_Config uartConfigA2 =
 {
@@ -90,10 +92,10 @@ void ESP8266_Reset(void)
 void ESP8266_SetInternetAccess(void)
 {
     // Set WiFi mode
-    ESP8266_RetryCommand("AT+CWMODE=1\r\n", 10);
+    ESP8266_RetryCommand("AT+CWMODE=1\r\n", 10, 1);
 
     // Connect to personal hotspot
-    ESP8266_RetryCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"\r\n", 10);
+    ESP8266_RetryCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"\r\n", 10, 1);
 }
 
 void ESP8266_GetTimeDate(RTC_C_Calendar* time)
@@ -105,7 +107,7 @@ void ESP8266_GetTimeDate(RTC_C_Calendar* time)
     int success = 0;
     do
     {
-        success = ESP8266_SendCommand(ESP8266String);
+        success = ESP8266_SendCommand(ESP8266String, 1);
         if(success == 0)
         {
             SysTick_delay(5000);
@@ -164,10 +166,10 @@ void ESP8266_SendSensorData(void)
 
     // connect to Google pushingbox API
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80\r\n");
-    int success = 0;
+    uint8_t success = 0;
     do
     {
-        success = ESP8266_SendCommand(ESP8266String);
+        success = ESP8266_SendCommand(ESP8266String, 1);
         SysTick_delay(500);
     } while(success == 0);
 
@@ -178,13 +180,13 @@ void ESP8266_SendSensorData(void)
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
     sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10);
+    ESP8266_RetryCommand(ESP8266String, 10, 1);
     SysTick_delay(500);
 
-    ESP8266_RetryCommand(PostSensorData, 10);
+    ESP8266_RetryCommand(PostSensorData, 10, 1);
 }
 
-uint8_t ESP8266_SendCommand(char* command)
+uint8_t ESP8266_SendCommand(char* command, uint8_t clear)
 {
     uint8_t success = 0, i = 0;
 
@@ -205,14 +207,17 @@ uint8_t ESP8266_SendCommand(char* command)
         success = 1;
     }
 
-    // clear response buffer
-    RX_Count = 0;
-    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+    if(clear == 1)
+    {
+        // clear response buffer
+        RX_Count = 0;
+        memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+    }
 
     return success;
 }
 
-uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms)
+uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms, uint8_t clear)
 {
     uint8_t retry = 0;
 
@@ -220,7 +225,7 @@ uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms)
     do
     {
         // check for success
-        if(ESP8266_SendCommand(command) == 1)
+        if(ESP8266_SendCommand(command, clear) == 1)
             return 1;
 
         SysTick_delay(delay_ms);
@@ -228,4 +233,71 @@ uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms)
     } while(retry < 3);
 
     return 0;
+}
+
+void ESP8266_GetForecastData(void)
+{
+    char ESP8266String[150] = "";
+    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80\r\n");
+    uint8_t success = 0;
+    do
+    {
+        success = ESP8266_SendCommand(ESP8266String, 1);
+        SysTick_delay(500);
+    } while(success == 0);
+
+    char PostSensorData[150] = "";
+    sprintf(PostSensorData,"GET http://api.wunderground.com/api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
+            " HTTP/1.1\r\nHost:api.wunderground.com\r\nConnection: close\r\n\r\n");
+    int formLength = strlen(PostSensorData);
+
+    // send api request for encrypting sensor data
+    memset(ESP8266String, '\0', 150);
+    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
+    ESP8266_RetryCommand(ESP8266String, 10, 1);
+    SysTick_delay(500);
+
+    ESP8266_RetryCommand(PostSensorData, 10, 1);
+    while(strstr(RX_Buffer, "CLOSED") == NULL);
+
+    ParseForecastData();
+}
+
+void ParseForecastData(void)
+{
+    sprintf(forecastResults,"");      // Clear previous results
+
+    sprintf(forecastFields, "weather temp_f relative_humidity wind_dir wind_mph pressure_in "
+            "windchill_f feelslike_f visibility_mi precip_1hr_in precip_today_in");
+
+    char* token = strtok(forecastFields, " ");
+
+    while(token != NULL)
+    {
+        int parsing = 1, index = 0;
+        char field[50] = "", currentResults[50] = "";
+
+        sprintf(field, "\"%s\":", token);
+
+        char* substr = strstr(RX_Buffer, field);
+        int startIndex = substr - (char *)(&RX_Buffer) + (strlen(field));
+        if (RX_Buffer[startIndex] == '"')
+            startIndex++;
+
+        while(parsing)
+        {
+            sprintf(forecastResults, "%s%c", forecastResults, RX_Buffer[startIndex + index++]);
+            if(RX_Buffer[startIndex + index] == '"' || RX_Buffer[startIndex + index] == ',')
+            {
+                parsing = 0;
+            }
+        }
+
+        sprintf(forecastResults, "%s ", forecastResults);
+        token = strtok(NULL, " ");
+    }
+
+    // clear response buffer
+    RX_Count = 0;
+    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 }

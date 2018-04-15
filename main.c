@@ -20,13 +20,20 @@ void main(void)
     /* System woken up by one second routine interrupt */
     while(1)
     {
+        /*
         // show environment and time date data
-        DisplayData();
+        DisplayEnvironmentalData();
+
+        // show weather forecast data
+        //DisplayForecastData();
 
         if(twoMinuteFlag == 1)
             ESP8266_SendSensorData();
 
         MAP_PCM_gotoLPM3();             // enter low power mode
+        */
+        DisplayForecastData();
+        SysTick_delay(500);
     }
 }
 
@@ -39,7 +46,7 @@ void Init_System(void)
     Setup_Clocks();                 // setting MCLK and SMCLK
     SysTick_Init();                 // systic timer setup
 
-    Termianl_Init();                // UART setup for terminal
+    Terminal_Init();                // UART setup for terminal
     ESP8266_Init();                 // setup for ESP8266 module and internet access
     RTC_Init();                     // set current date/time via NIST server
 
@@ -48,9 +55,9 @@ void Init_System(void)
     HAL_STARTUP();                  // setup LCD comm
     INIT_LCD();                     // initialize LCD
 
-    Timer32_Init();                 // one second interrupt
-    MAP_Interrupt_enableMaster();   // set master interrupt handler
-    MAP_PCM_gotoLPM3();             // enter low power mode
+    //Timer32_Init();                 // one second interrupt
+    //MAP_Interrupt_enableMaster();   // set master interrupt handler
+    //MAP_PCM_gotoLPM3();             // enter low power mode
 }
 
 /* Turn all MSP432 LEDs off */

@@ -31,8 +31,6 @@ void INIT_LCD (void)
     write_init_commands(Bcmd);
 
     set_addr_location(0,0,0,0);
-
-    ILI_fill_screen(BACKGROUND);
 }
 
 uint8_t static write_command (uint8_t cmd)
@@ -210,6 +208,45 @@ void ILI_draw_char_S(int16_t x, int16_t y, char c, int16_t textColor, int16_t bg
     }
 }
 
+void ILI_draw_char_scroll(int16_t x, int16_t y, char c, int16_t textColor, int16_t bgColor, uint8_t size, int scrollLine)
+{
+    uint8_t line;
+    int32_t i, j;
+    if((x >= ILI_TFTWIDTH) || (y >= ILI_TFTHEIGHT) || ((x + 5 * size - 1) < 0) || ((y + 8 * size - 1) < scrollLine))
+        return;
+
+    for(i=0; i<6; i++)
+    {
+        if(i == 5)
+            line = 0x0;
+        else
+            line = Font[(c*5)+i];
+
+        for(j=0; j<8; j++)
+        {
+            if(line & 0x01)
+            {
+                if(size == 1)
+                    ILI_draw_pixel(x+i, y+j, textColor);
+                else
+                {
+                    ILI_fill_rectangle(x+(i*size), y+(j*size), size, size, textColor);
+                }
+            }
+            else if (bgColor != textColor)
+            {
+                if(size == 1)
+                    ILI_draw_pixel(x+i, y+j, bgColor);
+                else
+                {
+                    ILI_fill_rectangle(x+i*size, y+j*size, size, size, bgColor);
+                }
+            }
+            line >>= 1;
+        }
+    }
+}
+
 void ILI_DrawChar(int16_t x, int16_t y, char c, int16_t textColor, int16_t bgColor, uint8_t size)
 {
     uint8_t line; // horizontal row of pixels of character
@@ -279,7 +316,7 @@ void ILI_InvertDisplay(int i)
         write_command(ILI_INVOFF);
 }
 
-void ILI_Write_String (uint8_t *message,int x, int y, uint16_t txtColor, uint16_t bgColor, uint8_t txtSize)
+void ILI_Write_String (uint8_t *message, int x, int y, uint16_t txtColor, uint16_t bgColor, uint8_t txtSize)
 {
     uint8_t     length;
     uint8_t     i;
@@ -287,6 +324,17 @@ void ILI_Write_String (uint8_t *message,int x, int y, uint16_t txtColor, uint16_
     for (i=0;i<length;i++)
     {
         ILI_draw_char_S(x+i*6*txtSize,y,message[i],txtColor,bgColor,txtSize);
+    }
+}
+
+void ILI_Write_Scroll_String (uint8_t *message, int x, int y, uint16_t txtColor, uint16_t bgColor, uint8_t txtSize, int scrollLine)
+{
+    uint8_t     length;
+    uint8_t     i;
+    length = strlen(message);
+    for (i=0;i<length;i++)
+    {
+        ILI_draw_char_scroll(x+i*6*txtSize,y,message[i],txtColor,bgColor,txtSize,scrollLine);
     }
 }
 

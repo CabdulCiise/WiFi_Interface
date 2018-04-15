@@ -7,6 +7,9 @@
 #include "colors.h"
 #include "hal.h"
 
-void DisplayData(void);
+void DisplayEnvironmentalData(void);
+void displayHeader(const char *screenTitle1, const char *screenTitle2);
+
+RTC_C_Calendar time;
 
 #endif /* ILI9341_USERINTERFACE_H_ */

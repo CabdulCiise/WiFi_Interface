@@ -1,4 +1,3 @@
-
 #ifndef ILI9341_ILI9341_H_
 #define ILI9341_ILI9341_H_
 
@@ -15,10 +14,12 @@ void ILI_fill_rectangle(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t col
 uint16_t ILI_color_565 (uint8_t red, uint8_t green, uint8_t blue);
 void ILI_DrawBitmap(int16_t x, int16_t y, const uint16_t *image, int16_t w, int16_t h);
 void ILI_draw_char_S(int16_t x, int16_t y, char c, int16_t textColor, int16_t bgColor, uint8_t size);
+void ILI_draw_char_scroll(int16_t x, int16_t y, char c, int16_t textColor, int16_t bgColor, uint8_t size, int scrollLine);
 void ILI_DrawChar(int16_t x, int16_t y, char c, int16_t textColor, int16_t bgColor, uint8_t size);
 uint32_t ILI_DrawString(uint16_t x, uint16_t y, char *pt, int16_t textColor);
 void ILI_InvertDisplay(int i);
 void ILI_Write_String (uint8_t *message, int x, int y, uint16_t txtColor, uint16_t bgColor, uint8_t txtSize);
+void ILI_Write_Scroll_String (uint8_t *message, int x, int y, uint16_t txtColor, uint16_t bgColor, uint8_t txtSize, int scrollLine);
 
 
 // *****    MACROS                  *****

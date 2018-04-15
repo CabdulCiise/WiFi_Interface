@@ -16,7 +16,9 @@
 #define                 TEAL                ILI_color_565(0, 255, 255)
 #define                 WHITE               ILI_color_565(255, 255, 255)
 #define                 YELLOW              ILI_color_565(255, 255, 0)
-#define                 BACKGROUND          ILI_color_565(200, 200, 200)
-
+#define                 GREY                ILI_color_565(200, 200, 200)
+#define                 MAIN_BG             ILI_color_565(200, 200, 200)
+#define                 HEADER_BG           ILI_color_565(255, 255, 255)
+#define                 TEXTCOLOR           ILI_color_565(0,0,0)
 
 #endif /* ILI9341_COLORS_H_ */

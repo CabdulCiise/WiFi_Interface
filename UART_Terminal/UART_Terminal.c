@@ -32,7 +32,7 @@ void EUSCIA0_ISR(void)
 
 /* Initializes UART on module A0. This is to be used with the terminal.
  * Creates and enables interrupt to handle UART TX/RX. */
-void Termianl_Init(void)
+void Terminal_Init(void)
 {
     /* Selecting P1.2 and P1.3 in UART mode. */
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
