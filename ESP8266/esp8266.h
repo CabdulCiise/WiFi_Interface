@@ -15,8 +15,7 @@ void ESP8266_GetTimeDate(RTC_C_Calendar* time);
 void ESP8266_SendSensorData(void);
 void ESP8266_GetForecastData(void);
 void ParseForecastData(void);
-
-extern char forecastResults[512];
-extern char forecastFields[512];
+void ESP8266_GetStockData(void);
+void ParseStockData(void);
 
 #endif /* ESP8266_ESP8266_H_ */

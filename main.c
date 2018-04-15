@@ -32,8 +32,10 @@ void main(void)
 
         MAP_PCM_gotoLPM3();             // enter low power mode
         */
-        DisplayForecastData();
+        //DisplayForecastData();
+        ESP8266_GetStockData();
         SysTick_delay(500);
+
     }
 }
 

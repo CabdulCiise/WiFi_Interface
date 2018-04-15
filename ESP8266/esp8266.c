@@ -9,15 +9,16 @@
 
 /* Project Includes */
 #include "ClockSystem/ClockSystem.h"
+#include "ILI9341/UserInterface.h"
 #include "BME280/bme280_support.h"
 #include "esp8266.h"
 
 #define RX_BUFFER_SIZE (1024*4)
+#define NUM_FORECAST_ITEMS 11
+#define NUM_STOCKS 5
 
 uint16_t RX_Count = 0;
 char RX_Buffer[RX_BUFFER_SIZE] = "";
-char forecastResults[512] = "";
-char forecastFields[512] = "";
 
 const eUSCI_UART_Config uartConfigA2 =
 {
@@ -76,6 +77,8 @@ void ESP8266_Init(void)
     EUSCIA2_Init();
 
     ESP8266_Reset();
+
+    SysTick_delay(300);
 
     // setup Wi-Fi connection
     ESP8266_SetInternetAccess();
@@ -196,6 +199,8 @@ uint8_t ESP8266_SendCommand(char* command, uint8_t clear)
         MAP_UART_transmitData(EUSCI_A2_BASE, command[i]);
     }
 
+    SysTick_delay(100);
+
     // wait for response by looking for possible responses
     while(strstr(RX_Buffer, "OK") == NULL &&
           strstr(RX_Buffer, "ERROR") == NULL &&
@@ -247,7 +252,7 @@ void ESP8266_GetForecastData(void)
     } while(success == 0);
 
     char PostSensorData[150] = "";
-    sprintf(PostSensorData,"GET http://api.wunderground.com/api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
+    sprintf(PostSensorData,"GET /api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
             " HTTP/1.1\r\nHost:api.wunderground.com\r\nConnection: close\r\n\r\n");
     int formLength = strlen(PostSensorData);
 
@@ -265,39 +270,132 @@ void ESP8266_GetForecastData(void)
 
 void ParseForecastData(void)
 {
-    sprintf(forecastResults,"");      // Clear previous results
+    int startIndex = 0, i = 0;
+    char* substr;
 
-    sprintf(forecastFields, "weather temp_f relative_humidity wind_dir wind_mph pressure_in "
-            "windchill_f feelslike_f visibility_mi precip_1hr_in precip_today_in");
+    const char forecastFields[11][25] = {"\"weather\":", "\"temp_f\":", "\"relative_humidity\":", "\"wind_dir\":", "\"wind_mph\":", "\"pressure_in\":",
+                                         "\"windchill_f\":", "\"feelslike_f\":", "\"visibility_mi\":", "\"precip_1hr_in\":", "\"precip_today_in\":"};
 
-    char* token = strtok(forecastFields, " ");
+    // index offsets
+    const int offsets[11] = {11, 9, 21, 12, 11, 15, 15, 15, 17, 17, 19};
 
-    while(token != NULL)
+    // setup recording array
+    sprintf(forecastData[0],  "Weather: ");
+    sprintf(forecastData[1],  "Temperature: "); // units Fahrenheit (F)
+    sprintf(forecastData[2],  "Relative Humi: "); // units percentage (%)
+    sprintf(forecastData[3],  "Wind Dir: "); // south north etc
+    sprintf(forecastData[4],  "Wind Speed: "); // miles per hour (mph)
+    sprintf(forecastData[5],  "Pressure: "); // units inches mercury inHg
+    sprintf(forecastData[6],  "Wind Chill: "); // units Fahrenheit (F)
+    sprintf(forecastData[7],  "Feels Like: "); // units Fahrenheit (F)
+    sprintf(forecastData[8],  "Visibility: "); // units miles (mi)
+    sprintf(forecastData[9],  "Precip 1hr: "); // units inches (in)
+    sprintf(forecastData[10], "Precip Today: "); // units inches (in)
+
+    for(i = 0; i < NUM_FORECAST_ITEMS; i++)
     {
-        int parsing = 1, index = 0;
-        char field[50] = "", currentResults[50] = "";
+        substr = strstr(RX_Buffer, forecastFields[i]);
+        startIndex = substr - (char *)(&RX_Buffer) + offsets[i];
 
-        sprintf(field, "\"%s\":", token);
-
-        char* substr = strstr(RX_Buffer, field);
-        int startIndex = substr - (char *)(&RX_Buffer) + (strlen(field));
-        if (RX_Buffer[startIndex] == '"')
-            startIndex++;
-
-        while(parsing)
+        while(RX_Buffer[startIndex] != '"' && RX_Buffer[startIndex] != ',')
         {
-            sprintf(forecastResults, "%s%c", forecastResults, RX_Buffer[startIndex + index++]);
-            if(RX_Buffer[startIndex + index] == '"' || RX_Buffer[startIndex + index] == ',')
-            {
-                parsing = 0;
-            }
+            sprintf(forecastData[i], "%s%c", forecastData[i], RX_Buffer[startIndex++]);
         }
-
-        sprintf(forecastResults, "%s ", forecastResults);
-        token = strtok(NULL, " ");
     }
+
+    // append units
+    sprintf(forecastData[1], "%s F", forecastData[1]);
+    sprintf(forecastData[4], "%s mph", forecastData[4]);
+    sprintf(forecastData[5], "%s inHg", forecastData[5]);
+    sprintf(forecastData[6], "%s F", forecastData[6]);
+    sprintf(forecastData[7], "%s F", forecastData[7]);
+    sprintf(forecastData[8], "%s mi", forecastData[8]);
+    sprintf(forecastData[9], "%s in", forecastData[9]);
+    sprintf(forecastData[10], "%s in", forecastData[10]);
 
     // clear response buffer
     RX_Count = 0;
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+}
+
+void ESP8266_GetStockData(void)
+{
+    char ESP8266String[200] = "";
+    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",80\r\n");
+    uint8_t success = 0;
+    do
+    {
+        success = ESP8266_SendCommand(ESP8266String, 1);
+        SysTick_delay(500);
+    } while(success == 0);
+
+    char PostSensorData[200] = "";
+    sprintf(PostSensorData,"GET /apps/thinghttp/send_request?api_key=U1WOPRJV707CXOXD "
+        " HTTP/1.1\r\nHost: api.thingspeak.com\r\nConnection: close\r\n\r\n");
+    int formLength = strlen(PostSensorData);
+
+    // send api request for encrypting sensor data
+    memset(ESP8266String, '\0', 200);
+    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
+    ESP8266_RetryCommand(ESP8266String, 10, 1);
+    SysTick_delay(500);
+
+    ESP8266_RetryCommand(PostSensorData, 10, 1);
+    while(strstr(RX_Buffer, "CLOSED") == NULL);
+
+    ParseStockData();
+}
+
+void ParseStockData(void)
+{
+    const char stocks[5][5] = {"MSFT", "AAPL", "FB", "TWTR", "GNTX"};
+    const char stockFields[4][20] = {"symbol", "price", "volume", "timestamp"};
+    const int offsets[4] = {10, 9, 10, 13};
+    uint8_t i = 0;
+
+    // setup recording array
+    for(i = 0; i < NUM_STOCKS; i++)
+    {
+        sprintf(stockData[i*4], "Symbol: %s", stocks[i]);
+        sprintf(stockData[i*4+1], "Price: $");
+        sprintf(stockData[i*4+2], "Volume: $");
+        sprintf(stockData[i*4+3], "Timestamp: ");
+    }
+
+    char* substr = strstr(RX_Buffer, "[{");
+    int length = substr - (char*)(&RX_Buffer) + 3;
+
+    char* data = (char*)(&RX_Buffer) + length;
+    char* token = strtok(data, ",");
+    token = strtok(NULL, ",");
+
+    char line[50];
+    uint8_t stockNum = 0;
+
+    while(token != NULL)
+    {
+        for(i = 1; i < 4; i++)
+        {
+            memset(line, '\0', 50);
+            sprintf(line, "%s", token);
+
+            if(strstr(line, stockFields[i]) != NULL)
+            {
+                substr = strstr(line, stockFields[i]);
+                int startIndex = substr - (char*)(&line) + offsets[i];
+
+                while(line[startIndex] != '"')
+                {
+                    sprintf(stockData[stockNum*4 + i], "%s%c", stockData[stockNum*4 + i], line[startIndex++]);
+                }
+
+                if(i == 3)
+                {
+                    stockNum++;
+                }
+                token = strtok(NULL, ",");
+            }
+        }
+        token = strtok(NULL, ",");
+    }
 }
