@@ -7,6 +7,7 @@
 #include "colors.h"
 #include "hal.h"
 
+extern uint8_t pageDrawn;
 extern char forecastData[22][30];
 extern char stockData[20][32];
 

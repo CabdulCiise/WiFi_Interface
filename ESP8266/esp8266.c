@@ -215,6 +215,39 @@ uint8_t ESP8266_GetStockData(void)
     return 1;
 }
 
+uint8_t ESP8266_SendNotice(void)
+{
+    char ESP8266String[150]; memset(ESP8266String, '\0', 150);
+    char PostSensorData[150]; memset(PostSensorData, '\0', 150);
+
+    // connect to Google pushingbox API
+    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80");
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+
+    __delay_cycles(1000000);
+
+    sprintf(PostSensorData,"GET /pushingbox?devid=v54F68B156202AEE&value=%.1f "
+        "HTTP/1.1\r\nHost: api.pushingbox.com\r\nUser-Agent: ESP8266/1.0\r\nConnection: close\r\n", BME280_GetHumidity());
+
+    // send api request for encrypting sensor data
+    memset(ESP8266String, '\0', 150);
+    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", strlen(PostSensorData) + 2);
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+
+    __delay_cycles(100000);
+
+    if(!ESP8266_SendCommand(PostSensorData))
+       return 0;
+
+    __delay_cycles(100000);
+
+    return 1;
+}
+
 void ParseForecastData(void)
 {
     int startIndex = 0, i = 0;

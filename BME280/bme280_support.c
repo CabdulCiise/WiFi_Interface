@@ -62,6 +62,9 @@ void stream_sensor_data_normal_mode(struct bme280_dev *dev)
 
 void BME280_Init(void)
 {
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN5);
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN5);
+
     I2C_Init();
 
     dev.dev_id = BME280_I2C_ADDR_PRIM;

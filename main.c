@@ -42,6 +42,8 @@ void main(void)
         {
             case 1:
                 DisplayEnvironmentalData();     // Display BME data (Main Pt.1)
+                if(BME280_GetHumidity() >= 80)
+                    ESP8266_SendNotice();
                 break;
             case 2:
                 if(tenSecondFlag == 1)
@@ -63,7 +65,7 @@ void main(void)
                         success = ESP8266_GetStockData();
                     }
                 }
-                if(twoSecondFlag == 1)
+                if(pageDrawn == 0)
                 {
                     DisplayStockData();             // Display exchange data (Extra Credit Pt.2)
                 }

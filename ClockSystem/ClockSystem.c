@@ -3,6 +3,7 @@
 
 /* Project Includes */
 #include "ClockSystem.h"
+#include "ILI9341/UserInterface.h"
 
 /* Global Variables */
 int twoMinuteFlag = 0;
@@ -84,4 +85,7 @@ void T32_INT1_IRQHandler(void)
     twoMinuteFlag = (++twoMinuteFlag) % 120;
     twoSecondFlag = (++twoSecondFlag) % 2;
     tenSecondFlag = (++tenSecondFlag) % 10;
+
+    if(twoSecondFlag == 1)
+        pageDrawn = 0;
 }

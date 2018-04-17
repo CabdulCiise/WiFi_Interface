@@ -15,6 +15,7 @@
 #define NUM_STOCKS 5
 
 /* Global Variables */
+uint8_t pageDrawn = 0;
 char forecastData[22][30];
 char stockData[20][32];
 
@@ -171,4 +172,6 @@ void DisplayStockData(void)
     sprintf(buffer1, ""); sprintf(buffer2, "");
 
     stockDisplayed = (stockDisplayed + 1) % 5;
+
+    pageDrawn = 1;
 }

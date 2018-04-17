@@ -11,6 +11,7 @@ uint8_t ESP8266_SendCommand(char* command);
 
 uint8_t ESP8266_GetTimeDate(RTC_C_Calendar* time);
 uint8_t ESP8266_SendSensorData(void);
+uint8_t ESP8266_SendNotice(void);
 
 uint8_t ESP8266_GetForecastData(void);
 void ParseForecastData(void);

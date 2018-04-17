@@ -13,9 +13,6 @@ void set_color(uint16_t color);
 
 void INIT_LCD (void)
 {
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN5);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN5);
-
     deassert_LCD_CS();
     assert_LCD_RESET();
     SysTick_delay(500);
