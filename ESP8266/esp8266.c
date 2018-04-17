@@ -11,58 +11,11 @@
 #include "ClockSystem/ClockSystem.h"
 #include "ILI9341/UserInterface.h"
 #include "BME280/bme280_support.h"
+#include "esp8266_uart.h"
 #include "esp8266.h"
 
-#define RX_BUFFER_SIZE (1024*4)
 #define NUM_FORECAST_ITEMS 11
 #define NUM_STOCKS 5
-
-uint16_t RX_Count = 0;
-char RX_Buffer[RX_BUFFER_SIZE] = "";
-
-const eUSCI_UART_Config uartConfigA2 =
-{
-     EUSCI_A_UART_CLOCKSOURCE_SMCLK,    // SMCLK Clock Source at 12000000 (divided down from MCLK)
-     6,                                 // BRDIV (clock pre-scaler) = INT((12000000/115200=104.167/16)
-     8,                                 // UCxBRF INT([(104.167/16)-INT(104.167/16)]x16))=(6.51-6)x16=8.16)
-     0x11,                              // UCxBRS = 0x11 (fractional part of N from table on p.721 of tech ref)
-     EUSCI_A_UART_NO_PARITY,            // No Parity
-     EUSCI_A_UART_LSB_FIRST,            // LSB First
-     EUSCI_A_UART_ONE_STOP_BIT,         // One stop bit
-     EUSCI_A_UART_MODE,                 // UART mode
-     EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION // Over sampling
-};
-
-/* Initializes UART on module A2. This is to be used with the ESP8266.
- * Creates and enables interrupt to handle UART TX/RX. */
-void EUSCIA2_Init(void)
-{
-    // Selecting P3.2(RX) and P3.3(TX) in UART mode. ESP8266 UART
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3, GPIO_PIN2 |
-       GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
-
-    MAP_UART_initModule(EUSCI_A2_BASE, &uartConfigA2);      // Configuring UART Module
-    MAP_UART_enableModule(EUSCI_A2_BASE);                 // Enable UART module
-
-    MAP_UART_enableInterrupt(EUSCI_A2_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
-    MAP_UART_registerInterrupt(EUSCI_A2_BASE, EUSCIA2_ISR);
-    MAP_Interrupt_enableInterrupt(INT_EUSCIA2);
-}
-
-/* EUSCI A2 UART ISR - gets data from ESP8266 on UART2, sends to terminal emulator on UART0 */
-void EUSCIA2_ISR(void)
-{
-    uint32_t status = MAP_UART_getEnabledInterruptStatus(EUSCI_A2_BASE);
-
-    MAP_UART_clearInterruptFlag(EUSCI_A2_BASE, status);
-
-    if(status & EUSCI_A_UART_RECEIVE_INTERRUPT)
-    {
-        uint8_t U2RXData = MAP_UART_receiveData(EUSCI_A2_BASE);
-        RX_Buffer[RX_Count++] = U2RXData;
-        MAP_UART_transmitData(EUSCI_A0_BASE, U2RXData); // send byte out UART0 port
-    }
-}
 
 void ESP8266_Init(void)
 {
@@ -78,27 +31,22 @@ void ESP8266_Init(void)
 
     ESP8266_Reset();
 
-    SysTick_delay(300);
-
     // setup Wi-Fi connection
     ESP8266_SetInternetAccess();
-}
-
-void ESP8266_Reset(void)
-{
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN1);
-    SysTick_delay(3000);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN1);
 }
 
 /* Configure ESP8266 into station mode, establish a connection to a Wi-Fi router */
 void ESP8266_SetInternetAccess(void)
 {
+    // pull ESP from reset
+    ESP8266_Start();
+    SysTick_delay(250);
+
     // Set WiFi mode
-    ESP8266_RetryCommand("AT+CWMODE=1\r\n", 10, 1);
+    while(!ESP8266_RetryCommand("AT+CWMODE=1\r\n", 100));
 
     // Connect to personal hotspot
-    ESP8266_RetryCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"\r\n", 10, 1);
+    while(!ESP8266_RetryCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"\r\n", 100));
 }
 
 void ESP8266_GetTimeDate(RTC_C_Calendar* time)
@@ -107,16 +55,8 @@ void ESP8266_GetTimeDate(RTC_C_Calendar* time)
 
     // Connect to NIST site via TCP connection
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
-    int success = 0;
-    do
-    {
-        success = ESP8266_SendCommand(ESP8266String, 1);
-        if(success == 0)
-        {
-            SysTick_delay(5000);
-        }
-    } while(success == 0);
-    SysTick_delay(500);
+
+    while(!ESP8266_RetryCommand(ESP8266String, 5000));
 
     while(strstr(RX_Buffer, "+IPD") == NULL)
     {
@@ -169,12 +109,8 @@ void ESP8266_SendSensorData(void)
 
     // connect to Google pushingbox API
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80\r\n");
-    uint8_t success = 0;
-    do
-    {
-        success = ESP8266_SendCommand(ESP8266String, 1);
-        SysTick_delay(500);
-    } while(success == 0);
+
+    while(!ESP8266_RetryCommand(ESP8266String, 500));
 
     sprintf(PostSensorData,"GET /pushingbox?devid=v044C7149636F3E6&temperature=%.1f&humidity=%.1f&pressure=%.2f "
         "HTTP/1.1\r\nHost: api.pushingbox.com\r\nUser-Agent: ESP8266/1.0\r\nConnection: close\r\n\r\n", temp, humi, pres);
@@ -183,13 +119,12 @@ void ESP8266_SendSensorData(void)
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
     sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10, 1);
-    SysTick_delay(500);
+    ESP8266_RetryCommand(ESP8266String, 10);
 
-    ESP8266_RetryCommand(PostSensorData, 10, 1);
+    ESP8266_RetryCommand(PostSensorData, 10);
 }
 
-uint8_t ESP8266_SendCommand(char* command, uint8_t clear)
+uint8_t ESP8266_SendCommand(char* command)
 {
     uint8_t success = 0, i = 0;
 
@@ -212,17 +147,14 @@ uint8_t ESP8266_SendCommand(char* command, uint8_t clear)
         success = 1;
     }
 
-    if(clear == 1)
-    {
-        // clear response buffer
-        RX_Count = 0;
-        memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
-    }
+    // clear response buffer
+    RX_Count = 0;
+    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 
     return success;
 }
 
-uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms, uint8_t clear)
+uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms)
 {
     uint8_t retry = 0;
 
@@ -230,8 +162,11 @@ uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms, uint8_t clear)
     do
     {
         // check for success
-        if(ESP8266_SendCommand(command, clear) == 1)
+        if(ESP8266_SendCommand(command) == 1)
+        {
+            SysTick_delay(250);
             return 1;
+        }
 
         SysTick_delay(delay_ms);
         retry++;
@@ -244,12 +179,8 @@ void ESP8266_GetForecastData(void)
 {
     char ESP8266String[150] = "";
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80\r\n");
-    uint8_t success = 0;
-    do
-    {
-        success = ESP8266_SendCommand(ESP8266String, 1);
-        SysTick_delay(500);
-    } while(success == 0);
+
+    while(!ESP8266_RetryCommand(ESP8266String, 500));
 
     char PostSensorData[150] = "";
     sprintf(PostSensorData,"GET /api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
@@ -259,10 +190,9 @@ void ESP8266_GetForecastData(void)
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
     sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10, 1);
-    SysTick_delay(500);
+    ESP8266_RetryCommand(ESP8266String, 10);
 
-    ESP8266_RetryCommand(PostSensorData, 10, 1);
+    ESP8266_RetryCommand(PostSensorData, 10);
     while(strstr(RX_Buffer, "CLOSED") == NULL);
 
     ParseForecastData();
@@ -281,37 +211,39 @@ void ParseForecastData(void)
 
     // setup recording array
     sprintf(forecastData[0],  "Weather: ");
-    sprintf(forecastData[1],  "Temperature: "); // units Fahrenheit (F)
-    sprintf(forecastData[2],  "Relative Humi: "); // units percentage (%)
-    sprintf(forecastData[3],  "Wind Dir: "); // south north etc
-    sprintf(forecastData[4],  "Wind Speed: "); // miles per hour (mph)
-    sprintf(forecastData[5],  "Pressure: "); // units inches mercury inHg
-    sprintf(forecastData[6],  "Wind Chill: "); // units Fahrenheit (F)
-    sprintf(forecastData[7],  "Feels Like: "); // units Fahrenheit (F)
-    sprintf(forecastData[8],  "Visibility: "); // units miles (mi)
-    sprintf(forecastData[9],  "Precip 1hr: "); // units inches (in)
-    sprintf(forecastData[10], "Precip Today: "); // units inches (in)
+    sprintf(forecastData[2],  "Temperature: "); // units Fahrenheit (F)
+    sprintf(forecastData[4],  "Relative Humi: "); // units percentage (%)
+    sprintf(forecastData[6],  "Wind Dir: "); // south north etc
+    sprintf(forecastData[8],  "Wind Speed: "); // miles per hour (mph)
+    sprintf(forecastData[10],  "Pressure: "); // units inches mercury inHg
+    sprintf(forecastData[12],  "Wind Chill: "); // units Fahrenheit (F)
+    sprintf(forecastData[14],  "Feels Like: "); // units Fahrenheit (F)
+    sprintf(forecastData[16],  "Visibility: "); // units miles (mi)
+    sprintf(forecastData[18],  "Precip 1hr: "); // units inches (in)
+    sprintf(forecastData[20], "Precip Today: "); // units inches (in)
 
     for(i = 0; i < NUM_FORECAST_ITEMS; i++)
     {
         substr = strstr(RX_Buffer, forecastFields[i]);
         startIndex = substr - (char *)(&RX_Buffer) + offsets[i];
 
+        sprintf(forecastData[2*i + 1], "    ");
+
         while(RX_Buffer[startIndex] != '"' && RX_Buffer[startIndex] != ',')
         {
-            sprintf(forecastData[i], "%s%c", forecastData[i], RX_Buffer[startIndex++]);
+            sprintf(forecastData[2*i + 1], "%s%c", forecastData[2*i + 1], RX_Buffer[startIndex++]);
         }
     }
 
     // append units
-    sprintf(forecastData[1], "%s F", forecastData[1]);
-    sprintf(forecastData[4], "%s mph", forecastData[4]);
-    sprintf(forecastData[5], "%s inHg", forecastData[5]);
-    sprintf(forecastData[6], "%s F", forecastData[6]);
-    sprintf(forecastData[7], "%s F", forecastData[7]);
-    sprintf(forecastData[8], "%s mi", forecastData[8]);
-    sprintf(forecastData[9], "%s in", forecastData[9]);
-    sprintf(forecastData[10], "%s in", forecastData[10]);
+    sprintf(forecastData[3], "%s F", forecastData[3]);
+    sprintf(forecastData[9], "%s mph", forecastData[9]);
+    sprintf(forecastData[11], "%s inHg", forecastData[11]);
+    sprintf(forecastData[13], "%s F", forecastData[13]);
+    sprintf(forecastData[15], "%s F", forecastData[15]);
+    sprintf(forecastData[17], "%s mi", forecastData[17]);
+    sprintf(forecastData[19], "%s in", forecastData[19]);
+    sprintf(forecastData[21], "%s in", forecastData[21]);
 
     // clear response buffer
     RX_Count = 0;
@@ -322,12 +254,8 @@ void ESP8266_GetStockData(void)
 {
     char ESP8266String[200] = "";
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",80\r\n");
-    uint8_t success = 0;
-    do
-    {
-        success = ESP8266_SendCommand(ESP8266String, 1);
-        SysTick_delay(500);
-    } while(success == 0);
+
+    while(!ESP8266_RetryCommand(ESP8266String, 500));
 
     char PostSensorData[200] = "";
     sprintf(PostSensorData,"GET /apps/thinghttp/send_request?api_key=U1WOPRJV707CXOXD "
@@ -337,10 +265,9 @@ void ESP8266_GetStockData(void)
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 200);
     sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10, 1);
-    SysTick_delay(500);
+    ESP8266_RetryCommand(ESP8266String, 10);
 
-    ESP8266_RetryCommand(PostSensorData, 10, 1);
+    ESP8266_RetryCommand(PostSensorData, 10);
     while(strstr(RX_Buffer, "CLOSED") == NULL);
 
     ParseStockData();
@@ -356,10 +283,10 @@ void ParseStockData(void)
     // setup recording array
     for(i = 0; i < NUM_STOCKS; i++)
     {
-        sprintf(stockData[i*4], "Symbol: %s", stocks[i]);
-        sprintf(stockData[i*4+1], "Price: $");
-        sprintf(stockData[i*4+2], "Volume: $");
-        sprintf(stockData[i*4+3], "Timestamp: ");
+        sprintf(stockData[i*4], "%s", stocks[i]);
+        sprintf(stockData[i*4+1], "$");
+        sprintf(stockData[i*4+2], "$");
+        sprintf(stockData[i*4+3], "");
     }
 
     char* substr = strstr(RX_Buffer, "[{");

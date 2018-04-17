@@ -8,6 +8,7 @@
 #include "RTC/RTC.h"
 #include "ILI9341/UserInterface.h"
 #include "ESP8266/esp8266.h"
+#include "Encoder/Encoder.h"
 
 /* Function Prototypes */
 void Init_System(void);
@@ -15,27 +16,30 @@ void LED_Init(void);
 
 void main(void)
 {
-    Init_System();
+    Init_System();              // Initialize system
 
-    /* System woken up by one second routine interrupt */
+    /* System woken up by routine one second interrupt */
     while(1)
     {
-        /*
-        // show environment and time date data
-        DisplayEnvironmentalData();
+        displayHeader();
 
-        // show weather forecast data
-        //DisplayForecastData();
+        switch(screenIndex)                     // Determine which screen to display based on index
+        {
+            case 1:
+                DisplayEnvironmentalData();     // Display BME data (Main Pt.1)
+                break;
+            case 2:
+                DisplayForecastData();          // Display forecast data (Extra Credit Pt.1)
+                break;
+            case 3:
+                DisplayStockData();             // Display exchange data (Extra Credit Pt.2)
+                break;
+        }
 
         if(twoMinuteFlag == 1)
-            ESP8266_SendSensorData();
+            ESP8266_SendSensorData();           // Populate spreadsheet every 2 minutes
 
-        MAP_PCM_gotoLPM3();             // enter low power mode
-        */
-        //DisplayForecastData();
-        ESP8266_GetStockData();
-        SysTick_delay(500);
-
+        MAP_PCM_gotoLPM3();                     // Go into low power mode until interrupt occurs
     }
 }
 
@@ -48,18 +52,20 @@ void Init_System(void)
     Setup_Clocks();                 // setting MCLK and SMCLK
     SysTick_Init();                 // systic timer setup
 
-    Terminal_Init();                // UART setup for terminal
-    ESP8266_Init();                 // setup for ESP8266 module and internet access
-    RTC_Init();                     // set current date/time via NIST server
-
     BME280_Init();                  // setup BME sensor
 
     HAL_STARTUP();                  // setup LCD comm
     INIT_LCD();                     // initialize LCD
 
-    //Timer32_Init();                 // one second interrupt
-    //MAP_Interrupt_enableMaster();   // set master interrupt handler
-    //MAP_PCM_gotoLPM3();             // enter low power mode
+    EncoderInit();                  // setup encoder
+
+    Terminal_Init();                // UART setup for terminal
+    ESP8266_Init();                 // setup for ESP8266 module and internet access
+    RTC_Init();                     // set current date/time via NIST server
+
+    Timer32_Init();                 // one second interrupt
+    MAP_Interrupt_enableMaster();   // set master interrupt handler
+    MAP_PCM_gotoLPM3();             // enter low power mode
 }
 
 /* Turn all MSP432 LEDs off */

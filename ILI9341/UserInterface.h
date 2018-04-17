@@ -7,10 +7,12 @@
 #include "colors.h"
 #include "hal.h"
 
-extern char forecastData[11][30];
+extern char forecastData[22][30];
 extern char stockData[20][32];
 
+void DisplayStockData(void);
+void DisplayForecastData(void);
 void DisplayEnvironmentalData(void);
-void displayHeader(const char *screenTitle1, const char *screenTitle2);
+void displayHeader();
 
 #endif /* ILI9341_USERINTERFACE_H_ */
