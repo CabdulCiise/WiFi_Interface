@@ -31,10 +31,13 @@ float BME280_GetHumidity()
 
 float BME280_GetPressure()
 {
-    const double PRESSURE_OFFSET = 14.539;
-
     bme280_get_sensor_data(BME280_ALL, &comp_data, &dev);
     return (float)(0.00029529980 * comp_data.pressure + 0.64);
+}
+
+void Delay1ms(void)
+{
+    _delay_cycles(48000000 / 1000);
 }
 
 void stream_sensor_data_normal_mode(struct bme280_dev *dev)
@@ -59,14 +62,13 @@ void stream_sensor_data_normal_mode(struct bme280_dev *dev)
 
 void BME280_Init(void)
 {
-    /* Initialize the I2C peripheral for this device. */
     I2C_Init();
 
     dev.dev_id = BME280_I2C_ADDR_PRIM;
     dev.intf = BME280_I2C_INTF;
     dev.read = I2C_READ_STRING;
     dev.write = I2C_WRITE_STRING;
-    dev.delay_ms = SysTick_delay;
+    dev.delay_ms = (void *)Delay1ms;
 
     bme280_init(&dev);
     stream_sensor_data_normal_mode(&dev);

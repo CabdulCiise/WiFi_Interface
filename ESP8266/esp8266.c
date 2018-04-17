@@ -40,34 +40,33 @@ void ESP8266_SetInternetAccess(void)
 {
     // pull ESP from reset
     ESP8266_Start();
-    SysTick_delay(250);
+
+    // wait for startup sequence
+    __delay_cycles(1000000);
 
     // Set WiFi mode
-    while(!ESP8266_RetryCommand("AT+CWMODE=1\r\n", 100));
+    ESP8266_SendCommand("AT+CWMODE=1") ? printf("1\n") : printf("0\n");
 
     // Connect to personal hotspot
-    while(!ESP8266_RetryCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"\r\n", 100));
+    ESP8266_SendCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"") ? printf("1\n") : printf("0\n");
 }
 
-void ESP8266_GetTimeDate(RTC_C_Calendar* time)
+uint8_t ESP8266_GetTimeDate(RTC_C_Calendar* time)
 {
-    char ESP8266String[150] = "";
+    char str[50]; memset(str, '\0', 50);
+    char ESP8266String[150]; memset(ESP8266String, '\0', 150);
 
     // Connect to NIST site via TCP connection
-    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
+    sprintf(ESP8266String, "AT+CIPSTART=\"TCP\",\"time.nist.gov\",13");
 
-    while(!ESP8266_RetryCommand(ESP8266String, 5000));
+    if(!ESP8266_SendCommand(ESP8266String))
+        return 0;
 
-    while(strstr(RX_Buffer, "+IPD") == NULL)
-    {
-        _delay_cycles(1);
-    }
-    SysTick_delay(10);
+    while(strstr(RX_Buffer, "+IPD") == NULL);
+    __delay_cycles(100000);
 
     char* substr = strstr(RX_Buffer, "+IPD");
     int startIndex = substr - (char *)(&RX_Buffer) + 15;
-
-    char str[50] = "";
 
     sprintf(str, "20%c%c", RX_Buffer[startIndex], RX_Buffer[startIndex+1]);
     time->year = atoi(str);
@@ -96,106 +95,123 @@ void ESP8266_GetTimeDate(RTC_C_Calendar* time)
     time->seconds = atoi(str);
 
     time->dayOfWeek = 1;    // don't care about this
+
+    return 1;
 }
 
-void ESP8266_SendSensorData(void)
+uint8_t ESP8266_SendSensorData(void)
 {
-    char ESP8266String[150] = "";
-    char PostSensorData[150] = "";
-
-    float temp = BME280_GetTemperature();
-    float humi = BME280_GetHumidity();
-    float pres = BME280_GetPressure();
-
-    // connect to Google pushingbox API
-    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80\r\n");
-
-    while(!ESP8266_RetryCommand(ESP8266String, 500));
-
-    sprintf(PostSensorData,"GET /pushingbox?devid=v044C7149636F3E6&temperature=%.1f&humidity=%.1f&pressure=%.2f "
-        "HTTP/1.1\r\nHost: api.pushingbox.com\r\nUser-Agent: ESP8266/1.0\r\nConnection: close\r\n\r\n", temp, humi, pres);
-    int formLength = strlen(PostSensorData);
-
-    // send api request for encrypting sensor data
-    memset(ESP8266String, '\0', 150);
-    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10);
-
-    ESP8266_RetryCommand(PostSensorData, 10);
-}
-
-uint8_t ESP8266_SendCommand(char* command)
-{
-    uint8_t success = 0, i = 0;
-
-    // send command to ESP8266
-    for(i = 0; i < strlen(command); i++)
-    {
-        MAP_UART_transmitData(EUSCI_A2_BASE, command[i]);
-    }
-
-    SysTick_delay(100);
-
-    // wait for response by looking for possible responses
-    while(strstr(RX_Buffer, "OK") == NULL &&
-          strstr(RX_Buffer, "ERROR") == NULL &&
-          strstr(RX_Buffer, "FAIL") == NULL);
-
-    // received success response
-    if(strstr(RX_Buffer, "OK") != NULL || strstr(RX_Buffer, "ALREADY CONNECTED") != NULL)
-    {
-        success = 1;
-    }
-
     // clear response buffer
     RX_Count = 0;
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 
-    return success;
-}
+    char ESP8266String[150] = ""; memset(ESP8266String, '\0', 150);
+    char PostSensorData[150] = ""; memset(PostSensorData, '\0', 150);
 
-uint8_t ESP8266_RetryCommand(char* command, uint16_t delay_ms)
-{
-    uint8_t retry = 0;
+    // connect to Google pushingbox API
+    sprintf(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80");
 
-    // retry sending the command if not succeeded
-    do
-    {
-        // check for success
-        if(ESP8266_SendCommand(command) == 1)
-        {
-            SysTick_delay(250);
-            return 1;
-        }
+    if(!ESP8266_SendCommand(ESP8266String))
+        return 0;
 
-        SysTick_delay(delay_ms);
-        retry++;
-    } while(retry < 3);
+    __delay_cycles(1000000);
 
-    return 0;
-}
-
-void ESP8266_GetForecastData(void)
-{
-    char ESP8266String[150] = "";
-    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80\r\n");
-
-    while(!ESP8266_RetryCommand(ESP8266String, 500));
-
-    char PostSensorData[150] = "";
-    sprintf(PostSensorData,"GET /api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
-            " HTTP/1.1\r\nHost:api.wunderground.com\r\nConnection: close\r\n\r\n");
-    int formLength = strlen(PostSensorData);
+    sprintf(PostSensorData,"GET /pushingbox?devid=v044C7149636F3E6&temperature=%.1f&humidity=%.1f&pressure=%.2f "
+        "HTTP/1.1\r\nHost: api.pushingbox.com\r\nUser-Agent: ESP8266/1.0\r\nConnection: close\r\n",
+        BME280_GetTemperature(),
+        BME280_GetHumidity(),
+        BME280_GetPressure());
 
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
-    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10);
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
 
-    ESP8266_RetryCommand(PostSensorData, 10);
+    if(!ESP8266_SendCommand(ESP8266String))
+        return 0;
+
+    __delay_cycles(100000);
+
+    if(!ESP8266_SendCommand(PostSensorData))
+        return 0;
+
+    __delay_cycles(100000);
+
+    return 1;
+}
+
+uint8_t ESP8266_GetForecastData(void)
+{
+    // clear response buffer
+    RX_Count = 0;
+    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+
+    char ESP8266String[150]; memset(ESP8266String, '\0', 150);
+    char PostSensorData[150] = ""; memset(PostSensorData, '\0', 150);
+
+    sprintf(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80");
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+
+    __delay_cycles(1000000);
+
+    sprintf(PostSensorData,"GET /api/24e8cb99501b03ce/conditions/q/MI/Grand_Rapids.json"
+            " HTTP/1.1\r\nHost:api.wunderground.com\r\nConnection: close\r\n");
+
+    // send api request for encrypting sensor data
+    memset(ESP8266String, '\0', 150);
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+    __delay_cycles(100000);
+
+    if(!ESP8266_SendCommand(PostSensorData))
+       return 0;
+
     while(strstr(RX_Buffer, "CLOSED") == NULL);
 
     ParseForecastData();
+
+    return 1;
+}
+
+uint8_t ESP8266_GetStockData(void)
+{
+    // clear response buffer
+    RX_Count = 0;
+    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+
+    char ESP8266String[200]; memset(ESP8266String, '\0', 200);
+    char PostSensorData[200] = ""; memset(PostSensorData, '\0', 200);
+
+    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",80");
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+
+    __delay_cycles(1000000);
+
+    sprintf(PostSensorData,"GET /apps/thinghttp/send_request?api_key=U1WOPRJV707CXOXD "
+        " HTTP/1.1\r\nHost: api.thingspeak.com\r\nConnection: close\r\n");
+
+    // send api request for encrypting sensor data
+    memset(ESP8266String, '\0', 200);
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
+
+    if(!ESP8266_SendCommand(ESP8266String))
+       return 0;
+
+    __delay_cycles(100000);
+
+    if(!ESP8266_SendCommand(PostSensorData))
+       return 0;
+
+    while(strstr(RX_Buffer, "CLOSED") == NULL);
+
+    ParseStockData();
+
+    return 1;
 }
 
 void ParseForecastData(void)
@@ -250,29 +266,6 @@ void ParseForecastData(void)
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 }
 
-void ESP8266_GetStockData(void)
-{
-    char ESP8266String[200] = "";
-    strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",80\r\n");
-
-    while(!ESP8266_RetryCommand(ESP8266String, 500));
-
-    char PostSensorData[200] = "";
-    sprintf(PostSensorData,"GET /apps/thinghttp/send_request?api_key=U1WOPRJV707CXOXD "
-        " HTTP/1.1\r\nHost: api.thingspeak.com\r\nConnection: close\r\n\r\n");
-    int formLength = strlen(PostSensorData);
-
-    // send api request for encrypting sensor data
-    memset(ESP8266String, '\0', 200);
-    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", formLength);
-    ESP8266_RetryCommand(ESP8266String, 10);
-
-    ESP8266_RetryCommand(PostSensorData, 10);
-    while(strstr(RX_Buffer, "CLOSED") == NULL);
-
-    ParseStockData();
-}
-
 void ParseStockData(void)
 {
     const char stocks[5][5] = {"MSFT", "AAPL", "FB", "TWTR", "GNTX"};
@@ -325,4 +318,34 @@ void ParseStockData(void)
         }
         token = strtok(NULL, ",");
     }
+}
+
+uint8_t ESP8266_SendCommand(char* command)
+{
+    uint16_t success = 0, i = 0;
+
+    // send command to ESP8266
+    for(i = 0; i < strlen(command); i++)
+    {
+        MAP_UART_transmitData(EUSCI_A2_BASE, command[i]);
+    }
+    MAP_UART_transmitData(EUSCI_A2_BASE, '\r');
+    MAP_UART_transmitData(EUSCI_A2_BASE, '\n');
+
+    // wait for response by looking for possible responses
+    while(strstr(RX_Buffer, "OK") == NULL &&
+          strstr(RX_Buffer, "ERROR") == NULL &&
+          strstr(RX_Buffer, "FAIL") == NULL);
+
+    // received success response
+    if(strstr(RX_Buffer, "OK") != NULL)
+    {
+        success = 1;
+    }
+
+    // clear response buffer
+    RX_Count = 0;
+    memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
+
+    return success;
 }

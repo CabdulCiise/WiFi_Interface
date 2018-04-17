@@ -76,7 +76,7 @@ void DisplayEnvironmentalData(void)
 {
     /* Header Info */
     sprintf(screenTitle1, "Weather");
-    sprintf(screenTitle2, "Data");
+    sprintf(screenTitle2, "Data    ");
 
     char buffer[50];
 
@@ -134,12 +134,12 @@ void DisplayForecastData(void)
 
 void DisplayStockData(void)
 {
-    // Header Info
-    sprintf(screenTitle1, "Weather");
-    sprintf(screenTitle2, "Forecast");
-
     static int stockDisplayed = 0;
     char buffer1[50], buffer2[50];
+
+    // Header Info
+    sprintf(screenTitle1, "Stock    ");
+    sprintf(screenTitle2, "Data    ");
 
     sprintf(buffer1, "Symbol:");                                          // Symbol label
     ILI_Write_String(buffer1, 10, 60, TEXTCOLOR, MAIN_BG, 2);

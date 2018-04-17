@@ -1,3 +1,6 @@
+/* Standard Includes */
+#include <stdio.h>
+
 /* DriverLib Includes */
 #include "driverlib.h"
 
@@ -12,6 +15,7 @@
 
 /* Function Prototypes */
 void Init_System(void);
+void GetData(void);
 void LED_Init(void);
 
 void main(void)
@@ -21,7 +25,8 @@ void main(void)
     /* System woken up by routine one second interrupt */
     while(1)
     {
-        displayHeader();
+        ESP8266_GetStockData();
+        /*displayHeader();
 
         switch(screenIndex)                     // Determine which screen to display based on index
         {
@@ -29,17 +34,36 @@ void main(void)
                 DisplayEnvironmentalData();     // Display BME data (Main Pt.1)
                 break;
             case 2:
+                if(tenSecondFlag == 1)
+                {
+                    uint8_t success = 0;
+                    while(!success)
+                    {
+                        success = ESP8266_GetForecastData();
+                    }
+                }
                 DisplayForecastData();          // Display forecast data (Extra Credit Pt.1)
                 break;
             case 3:
-                DisplayStockData();             // Display exchange data (Extra Credit Pt.2)
+                if(tenSecondFlag == 1)
+                {
+                    uint8_t success = 0;
+                    while(!success)
+                    {
+                        success = ESP8266_GetStockData();
+                    }
+                }
+                if(twoSecondFlag == 1)
+                {
+                    DisplayStockData();             // Display exchange data (Extra Credit Pt.2)
+                }
                 break;
         }
 
         if(twoMinuteFlag == 1)
+        {
             ESP8266_SendSensorData();           // Populate spreadsheet every 2 minutes
-
-        MAP_PCM_gotoLPM3();                     // Go into low power mode until interrupt occurs
+        }*/
     }
 }
 
@@ -52,20 +76,29 @@ void Init_System(void)
     Setup_Clocks();                 // setting MCLK and SMCLK
     SysTick_Init();                 // systic timer setup
 
-    BME280_Init();                  // setup BME sensor
-
-    HAL_STARTUP();                  // setup LCD comm
-    INIT_LCD();                     // initialize LCD
-
-    EncoderInit();                  // setup encoder
+    //BME280_Init();                  // setup BME sensor
 
     Terminal_Init();                // UART setup for terminal
     ESP8266_Init();                 // setup for ESP8266 module and internet access
-    RTC_Init();                     // set current date/time via NIST server
+    //RTC_Init();                     // set current date/time via NIST server
 
-    Timer32_Init();                 // one second interrupt
-    MAP_Interrupt_enableMaster();   // set master interrupt handler
-    MAP_PCM_gotoLPM3();             // enter low power mode
+    //GetData();                      // get initial stock and forecast data
+
+    //HAL_STARTUP();                  // setup LCD comm
+    //INIT_LCD();                     // initialize LCD
+
+    //EncoderInit();                  // setup encoder
+
+    //Timer32_Init();                 // one second interrupt
+    //MAP_Interrupt_enableMaster();   // set master interrupt handler
+}
+
+/* Get initial data */
+void GetData(void)
+{
+    ESP8266_GetForecastData() ? printf("1\n") : printf("0\n");
+
+    ESP8266_GetStockData() ? printf("1\n") : printf("0\n");
 }
 
 /* Turn all MSP432 LEDs off */

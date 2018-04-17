@@ -7,6 +7,8 @@
 extern uint8_t screenIndex;
 
 void EncoderInit(void);
+void EncoderDisable(void);
+void EncoderEnable(void);
 void PORT2_ISRHandler(void);
 
 #endif

@@ -2,6 +2,8 @@
 #define CLOCKSYSTEM_CLOCKSYSTEM_H_
 
 extern int twoMinuteFlag;
+extern int twoSecondFlag;
+extern int tenSecondFlag;
 
 void Setup_Clocks(void);
 void SysTick_Init(void);

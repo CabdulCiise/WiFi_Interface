@@ -6,6 +6,8 @@
 
 /* Global Variables */
 int twoMinuteFlag = 0;
+int twoSecondFlag = 0;
+int tenSecondFlag = 0;
 
 /* Setup clock sources: MCLK => 48 MHz, SMCLK => 12 MHz*/
 void Setup_Clocks(void)
@@ -78,4 +80,6 @@ void T32_INT1_IRQHandler(void)
 
     // Set flags
     twoMinuteFlag = (++twoMinuteFlag) % 120;
+    twoSecondFlag = (++twoMinuteFlag) % 2;
+    tenSecondFlag = (++twoMinuteFlag) % 10;
 }

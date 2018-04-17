@@ -3,22 +3,20 @@
 
 /* Project Includes */
 #include "ESP8266/esp8266.h"
+#include "ClockSystem/ClockSystem.h"
 #include "RTC.h"
 
 void RTC_Init(void)
 {
+    uint8_t success = 0;
     RTC_C_Calendar time;
 
     /* Get time date from NIST server and set on-board RTC */
-    //ESP8266_GetTimeDate(&time);
-
-    time.minutes = 30;
-    time.hours = 14;
-    time.dayOfmonth = 14;
-    time.month = 4;
-    time.seconds = 0;
-    time.dayOfWeek = 7;
-    time.year = 2018;
+    while(!success)
+    {
+        success = ESP8266_GetTimeDate(&time);
+        success ? SysTick_delay(10) : SysTick_delay(5000);
+    }
 
     /* Initializing RTC with current time as described in time in
      * definitions section */

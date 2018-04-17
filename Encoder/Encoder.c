@@ -3,6 +3,7 @@
 
 /* Project Includes */
 #include "Encoder/Encoder.h"
+#include "ILI9341/UserInterface.h"
 
 uint8_t screenIndex;
 
@@ -17,6 +18,16 @@ void EncoderInit(void)
     MAP_GPIO_enableInterrupt(GPIO_PORT_P2, GPIO_PIN5);
 
     screenIndex = 1; // initialize to first screen
+}
+
+void EncoderDisable(void)
+{
+    MAP_GPIO_disableInterrupt(GPIO_PORT_P2, GPIO_PIN5);
+}
+
+void EncoderEnable(void)
+{
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P2, GPIO_PIN5);
 }
 
 void PORT2_ISRHandler(void)
@@ -44,4 +55,6 @@ void PORT2_ISRHandler(void)
         if(screenIndex <= 0)            // Decrement screen index
             screenIndex = 3;
     }
+
+    ILI_fill_rectangle(0, 46, 240, 300, MAIN_BG);
 }
