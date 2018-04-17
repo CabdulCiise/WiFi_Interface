@@ -53,6 +53,10 @@ void ESP8266_SetInternetAccess(void)
 
 uint8_t ESP8266_GetTimeDate(RTC_C_Calendar* time)
 {
+    sprintf(screenTitle1, "Gathering");
+    sprintf(screenTitle2, "RTC....  ");
+    displayHeader();
+
     char str[50]; memset(str, '\0', 50);
     char ESP8266String[150]; memset(ESP8266String, '\0', 150);
 
@@ -101,6 +105,10 @@ uint8_t ESP8266_GetTimeDate(RTC_C_Calendar* time)
 
 uint8_t ESP8266_SendSensorData(void)
 {
+    sprintf(screenTitle1, "Sending  ");
+    sprintf(screenTitle2, "Data....");
+    displayHeader();
+
     // clear response buffer
     RX_Count = 0;
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
@@ -141,6 +149,10 @@ uint8_t ESP8266_SendSensorData(void)
 
 uint8_t ESP8266_GetForecastData(void)
 {
+    sprintf(screenTitle1, "Gathering");
+    sprintf(screenTitle2, "Data...  ");
+    displayHeader();
+
     // clear response buffer
     RX_Count = 0;
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
@@ -178,6 +190,10 @@ uint8_t ESP8266_GetForecastData(void)
 
 uint8_t ESP8266_GetStockData(void)
 {
+    sprintf(screenTitle1, "Gathering");
+    sprintf(screenTitle2, "Data...  ");
+    displayHeader();
+
     // clear response buffer
     RX_Count = 0;
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
@@ -222,6 +238,7 @@ uint8_t ESP8266_SendNotice(void)
 
     // connect to Google pushingbox API
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80");
+
 
     if(!ESP8266_SendCommand(ESP8266String))
        return 0;
@@ -372,7 +389,7 @@ uint8_t ESP8266_SendCommand(char* command)
           strstr(RX_Buffer, "FAIL") == NULL);
 
     // received success response
-    if(strstr(RX_Buffer, "OK") != NULL)
+    if((strstr(RX_Buffer, "OK") != NULL))
     {
         success = 1;
     }

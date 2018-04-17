@@ -86,6 +86,14 @@ void T32_INT1_IRQHandler(void)
     twoSecondFlag = (++twoSecondFlag) % 2;
     tenSecondFlag = (++tenSecondFlag) % 10;
 
-    if(twoSecondFlag == 1)
-        pageDrawn = 0;
+    if(LCD_Initialized = 1)
+    {
+        if(twoSecondFlag == 1)
+        {
+            pageDrawn = 0;
+            ILI_DrawChar(161, 7, ':',  TEXTCOLOR, HEADER_BG, 2);
+        }
+        else
+            ILI_DrawChar(161, 7, ' ',  TEXTCOLOR, HEADER_BG, 2);
+    }
 }

@@ -3,6 +3,7 @@
 #include "string.h"
 
 #include "ClockSystem/ClockSystem.h"
+#include "UserInterface.h"
 #include "hal.h"
 #include "ili9341.h"
 #include "colors.h"
@@ -31,6 +32,8 @@ void INIT_LCD (void)
     write_init_commands(Bcmd);
 
     set_addr_location(0,0,0,0);
+
+    LCD_Initialized = 1;
 }
 
 uint8_t static write_command (uint8_t cmd)

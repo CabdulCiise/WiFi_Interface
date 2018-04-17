@@ -10,6 +10,9 @@
 extern uint8_t pageDrawn;
 extern char forecastData[22][30];
 extern char stockData[20][32];
+extern char screenTitle1[10];
+extern char screenTitle2[10];
+extern uint8_t LCD_Initialized;
 
 void DisplayStockData(void);
 void DisplayForecastData(void);

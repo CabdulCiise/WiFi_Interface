@@ -10,6 +10,7 @@
 /* Project Includes */
 #include "UserInterface.h"
 #include "ESP8266/esp8266.h"
+#include "Encoder/Encoder.h"
 
 #define NUM_FORECAST_ITEMS 11
 #define NUM_STOCKS 5
@@ -19,13 +20,14 @@ uint8_t pageDrawn = 0;
 char forecastData[22][30];
 char stockData[20][32];
 
-char screenTitle1[10] = "Weather", screenTitle2[10] = "Data";
+char screenTitle1[10] = "Weather  ", screenTitle2[10] = "Data";
+uint8_t LCD_Initialized = 0;
 
 void displayHeader()
 {
     int headerLine = 45;
-    static int screenStarted, toggle = 0;
-    char buffer[50];
+    static int screenStarted;
+    char buffer[50], buffer2[50], AMPM[2];
 
     if(screenStarted == 0)
     {
@@ -42,42 +44,36 @@ void displayHeader()
     if(time.hours > 12)
     {
         time.hours -= 12;
-        if(toggle == 1)      // blink_time is used to blink the ':'    should toggle every second
-        {
-            sprintf(buffer, "%02d:%02d PM", time.hours, time.minutes);
-        }
-        else
-        {
-            sprintf(buffer, "%02d %02d PM", time.hours, time.minutes);
-        }
+        sprintf(AMPM, "PM");
     }
     else
-    {
-        if(toggle == 1)      // blink_time is used to blink the ':'    should toggle every second
-        {
-            sprintf(buffer, "%02d:%02d AM", time.hours, time.minutes);
-        }
-        else
-        {
-            sprintf(buffer, "%02d %02d AM", time.hours, time.minutes);
-        }
-    }
+        sprintf(AMPM, "AM");
 
+    sprintf(buffer, "%02d", time.hours);
+    sprintf(buffer2, "%02d %s", time.minutes, AMPM);
     ILI_Write_String(buffer, 137, 7, TEXTCOLOR, HEADER_BG, 2);              // Display the time
+    ILI_Write_String(buffer2, 173, 7, TEXTCOLOR, HEADER_BG, 2);             // Display the time
 
     sprintf(buffer, "%02d/%02d", time.month , time.dayOfmonth);             // Format the date
     ILI_Write_String(buffer, 172, 24, TEXTCOLOR, HEADER_BG, 2);             // Display the date
     ILI_Write_String(screenTitle1, 8, 7, TEXTCOLOR, HEADER_BG, 2);          // Display the screen title
     ILI_Write_String(screenTitle2, 8, 24, TEXTCOLOR, HEADER_BG, 2);         // Display the screen title
-
-    toggle = (++toggle) % 2;
 }
 
 void DisplayEnvironmentalData(void)
 {
     /* Header Info */
-    sprintf(screenTitle1, "Weather");
+    sprintf(screenTitle1, "Weather  ");
     sprintf(screenTitle2, "Data    ");
+
+    if(screenTransition == 1)
+    {
+        MAP_Interrupt_disableInterrupt(INT_T32_INT1);
+        displayHeader();
+        ILI_fill_rectangle(0, 46, 240, 300, MAIN_BG);       // Clear content before changing screens
+        screenTransition = 0;                               // Clear flag
+        MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    }
 
     char buffer[50];
 
@@ -94,8 +90,17 @@ void DisplayEnvironmentalData(void)
 void DisplayForecastData(void)
 {
     // Header Info
-    sprintf(screenTitle1, "Weather");
+    sprintf(screenTitle1, "Weather  ");
     sprintf(screenTitle2, "Forecast");
+
+    if(screenTransition == 1)
+    {
+        MAP_Interrupt_disableInterrupt(INT_T32_INT1);
+        displayHeader();
+        ILI_fill_rectangle(0, 46, 240, 300, MAIN_BG);       // Clear content before changing screens
+        screenTransition = 0;                               // Clear flag
+        MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    }
 
     static int scrollCount = 0;
     int scrollLine = 90, heightDelta = 20, index = 0, i = 0, updateCity = 1;
@@ -135,12 +140,21 @@ void DisplayForecastData(void)
 
 void DisplayStockData(void)
 {
+    // Header Info
+    sprintf(screenTitle1, "Stock     ");
+    sprintf(screenTitle2, "Data    ");
+
+    if(screenTransition == 1)
+    {
+        MAP_Interrupt_disableInterrupt(INT_T32_INT1);
+        displayHeader();
+        ILI_fill_rectangle(0, 46, 240, 300, MAIN_BG);       // Clear content before changing screens
+        screenTransition = 0;                               // Clear flag
+        MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    }
+
     static int stockDisplayed = 0;
     char buffer1[50], buffer2[50];
-
-    // Header Info
-    sprintf(screenTitle1, "Stock    ");
-    sprintf(screenTitle2, "Data    ");
 
     sprintf(buffer1, "Symbol:");                                          // Symbol label
     ILI_Write_String(buffer1, 10, 60, TEXTCOLOR, MAIN_BG, 2);

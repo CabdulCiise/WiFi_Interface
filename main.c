@@ -25,14 +25,13 @@ void main(void)
     /* System woken up by routine one second interrupt */
     while(1)
     {
-        if(screenTransition == 1)
+        while(screenTransition == 1)
         {
             ILI_fill_rectangle(0, 46, 240, 300, MAIN_BG);       // Clear content before changing screens
             screenTransition = 0;                               // Clear flag
-            updateHeader = 1;                   // Update header
         }
 
-        if(updateHeader == 1)
+        while(updateHeader == 1)
         {
             displayHeader();                    // Update header (every 1 second or when screen transition)
             updateHeader = 0;                   // Clear flag
@@ -42,7 +41,7 @@ void main(void)
         {
             case 1:
                 DisplayEnvironmentalData();     // Display BME data (Main Pt.1)
-                if(BME280_GetHumidity() >= 80)
+                if(BME280_GetHumidity() >= 50)
                     ESP8266_SendNotice();
                 break;
             case 2:
@@ -92,12 +91,12 @@ void Init_System(void)
 
     Terminal_Init();                // UART setup for terminal
     ESP8266_Init();                 // setup for ESP8266 module and internet access
-    RTC_Init();                     // set current date/time via NIST server
-
-    GetData();                      // get initial stock and forecast data
 
     HAL_STARTUP();                  // setup LCD comm
     INIT_LCD();                     // initialize LCD
+
+    RTC_Init();                     // set current date/time via NIST server
+    GetData();                      // get initial stock and forecast data
 
     EncoderInit();                  // setup encoder
 
