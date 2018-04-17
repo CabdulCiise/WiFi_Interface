@@ -48,7 +48,7 @@ void ESP8266_SetInternetAccess(void)
     ESP8266_SendCommand("AT+CWMODE=1") ? printf("1\n") : printf("0\n");
 
     // Connect to personal hotspot
-    ESP8266_SendCommand("AT+CWJAP=\"iPhone\",\"eskisehir01\"") ? printf("1\n") : printf("0\n");
+    ESP8266_SendCommand("AT+CWJAP=\"Nathan's iPhone\",\"testPassword\"") ? printf("1\n") : printf("0\n");
 }
 
 uint8_t ESP8266_GetTimeDate(RTC_C_Calendar* time)
@@ -124,7 +124,7 @@ uint8_t ESP8266_SendSensorData(void)
 
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
-    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData)+2);
 
     if(!ESP8266_SendCommand(ESP8266String))
         return 0;
@@ -146,7 +146,7 @@ uint8_t ESP8266_GetForecastData(void)
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 
     char ESP8266String[150]; memset(ESP8266String, '\0', 150);
-    char PostSensorData[150] = ""; memset(PostSensorData, '\0', 150);
+    char PostSensorData[150]; memset(PostSensorData, '\0', 150);
 
     sprintf(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80");
 
@@ -160,7 +160,7 @@ uint8_t ESP8266_GetForecastData(void)
 
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 150);
-    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData)+2);
 
     if(!ESP8266_SendCommand(ESP8266String))
        return 0;
@@ -183,7 +183,7 @@ uint8_t ESP8266_GetStockData(void)
     memset(RX_Buffer, '\0', RX_BUFFER_SIZE);
 
     char ESP8266String[200]; memset(ESP8266String, '\0', 200);
-    char PostSensorData[200] = ""; memset(PostSensorData, '\0', 200);
+    char PostSensorData[200]; memset(PostSensorData, '\0', 200);
 
     strcpy(ESP8266String, "AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",80");
 
@@ -193,11 +193,12 @@ uint8_t ESP8266_GetStockData(void)
     __delay_cycles(1000000);
 
     sprintf(PostSensorData,"GET /apps/thinghttp/send_request?api_key=U1WOPRJV707CXOXD "
-        " HTTP/1.1\r\nHost: api.thingspeak.com\r\nConnection: close\r\n");
+            " HTTP/1.1\r\nHost: api.thingspeak.com\r\nConnection: close\r\n");
 
     // send api request for encrypting sensor data
     memset(ESP8266String, '\0', 200);
-    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData));
+    sprintf(ESP8266String, "AT+CIPSEND=%d", strlen(PostSensorData)+2);
+
 
     if(!ESP8266_SendCommand(ESP8266String))
        return 0;

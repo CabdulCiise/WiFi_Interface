@@ -4,7 +4,7 @@
 /* Standard Includes */
 #include <stdint.h>
 
-extern uint8_t screenIndex;
+extern uint8_t screenIndex, screenTransition;
 
 void EncoderInit(void);
 void EncoderDisable(void);

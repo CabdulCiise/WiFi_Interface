@@ -4,6 +4,7 @@
 extern int twoMinuteFlag;
 extern int twoSecondFlag;
 extern int tenSecondFlag;
+extern int updateHeader;
 
 void Setup_Clocks(void);
 void SysTick_Init(void);

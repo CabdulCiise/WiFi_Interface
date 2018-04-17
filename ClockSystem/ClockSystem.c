@@ -8,6 +8,7 @@
 int twoMinuteFlag = 0;
 int twoSecondFlag = 0;
 int tenSecondFlag = 0;
+int updateHeader = 0;
 
 /* Setup clock sources: MCLK => 48 MHz, SMCLK => 12 MHz*/
 void Setup_Clocks(void)
@@ -79,7 +80,8 @@ void T32_INT1_IRQHandler(void)
     MAP_Timer32_clearInterruptFlag(TIMER32_0_BASE);
 
     // Set flags
+    updateHeader = 1;
     twoMinuteFlag = (++twoMinuteFlag) % 120;
-    twoSecondFlag = (++twoMinuteFlag) % 2;
-    tenSecondFlag = (++twoMinuteFlag) % 10;
+    twoSecondFlag = (++twoSecondFlag) % 2;
+    tenSecondFlag = (++tenSecondFlag) % 10;
 }
