@@ -255,12 +255,12 @@ uint8_t ESP8266_SendNotice(void)
     if(!ESP8266_SendCommand(ESP8266String))
        return 0;
 
-    __delay_cycles(100000);
+    __delay_cycles(1000000);
 
     if(!ESP8266_SendCommand(PostSensorData))
        return 0;
 
-    __delay_cycles(100000);
+    __delay_cycles(1000000);
 
     return 1;
 }
@@ -389,7 +389,7 @@ uint8_t ESP8266_SendCommand(char* command)
           strstr(RX_Buffer, "FAIL") == NULL);
 
     // received success response
-    if((strstr(RX_Buffer, "OK") != NULL))
+    if((strstr(RX_Buffer, "OK") != NULL) || (strstr(RX_Buffer, "ALREADY CONNECTED") != NULL))
     {
         success = 1;
     }
